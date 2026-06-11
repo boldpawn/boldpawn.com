@@ -148,9 +148,9 @@ func newMCPServer(scope constructs.Construct, props *siteStackProps, hostedZone 
 			"MCP_ALLOWED_ORIGINS": jsii.String("https://github.com,https://github.dev,https://vscode.dev,https://mcp." + props.DomainName),
 		},
 		Handler:    jsii.String("bootstrap"),
-		MemorySize: jsii.Number(256),
+		MemorySize: jsii.Number(512),
 		Runtime:    lambda.Runtime_PROVIDED_AL2023(),
-		Timeout:    awscdk.Duration_Seconds(jsii.Number(20)),
+		Timeout:    awscdk.Duration_Seconds(jsii.Number(60)),
 	})
 	contentBucket.GrantRead(mcpFunction, nil)
 

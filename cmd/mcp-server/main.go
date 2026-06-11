@@ -29,11 +29,12 @@ import (
 )
 
 const (
-	protocolVersion = "2025-06-18"
-	serverName      = "boldpawn-content-mcp"
-	serverVersion   = "0.1.0"
-	maxObjectBytes  = int64(1_000_000)
-	maxReadChars    = 20_000
+	protocolVersion  = "2025-06-18"
+	serverName       = "boldpawn-content-mcp"
+	serverVersion    = "0.1.0"
+	fetchConcurrency = 16
+	maxObjectBytes   = int64(1_000_000)
+	maxReadChars     = 20_000
 )
 
 var (
@@ -48,7 +49,7 @@ var (
 	punctuationSpacePattern = regexp.MustCompile(`\s+([.,;:!?])`)
 
 	s3Client *s3.Client
-	cache    = documentCache{ttl: 90 * time.Second}
+	cache    = documentCache{ttl: 15 * time.Minute}
 )
 
 type documentCache struct {
@@ -531,7 +532,7 @@ func loadDocuments(ctx context.Context) ([]document, error) {
 		return nil, errors.New("CONTENT_BUCKET is not configured")
 	}
 
-	var docs []document
+	var keys []string
 	paginator := s3.NewListObjectsV2Paginator(s3Client, &s3.ListObjectsV2Input{
 		Bucket: aws.String(bucketName),
 		Prefix: aws.String(contentPrefix),
@@ -547,12 +548,13 @@ func loadDocuments(ctx context.Context) ([]document, error) {
 			if key == "" || strings.HasSuffix(key, "/") || !readableKey(key) || aws.ToInt64(item.Size) > maxObjectBytes {
 				continue
 			}
-			doc, err := fetchDocument(ctx, key)
-			if err != nil {
-				continue
-			}
-			docs = append(docs, doc)
+			keys = append(keys, key)
 		}
+	}
+
+	docs, err := fetchDocuments(ctx, keys)
+	if err != nil {
+		return nil, err
 	}
 	sort.Slice(docs, func(i, j int) bool { return docs[i].Key < docs[j].Key })
 
@@ -561,6 +563,59 @@ func loadDocuments(ctx context.Context) ([]document, error) {
 	cache.expiresAt = time.Now().Add(cache.ttl)
 	cache.mu.Unlock()
 
+	return docs, nil
+}
+
+func fetchDocuments(ctx context.Context, keys []string) ([]document, error) {
+	if len(keys) == 0 {
+		return nil, nil
+	}
+
+	workerCount := fetchConcurrency
+	if len(keys) < workerCount {
+		workerCount = len(keys)
+	}
+
+	jobs := make(chan string)
+	results := make(chan document, len(keys))
+	var wg sync.WaitGroup
+
+	for i := 0; i < workerCount; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for key := range jobs {
+				doc, err := fetchDocument(ctx, key)
+				if err != nil {
+					continue
+				}
+				select {
+				case results <- doc:
+				case <-ctx.Done():
+					return
+				}
+			}
+		}()
+	}
+
+	for _, key := range keys {
+		select {
+		case jobs <- key:
+		case <-ctx.Done():
+			close(jobs)
+			wg.Wait()
+			close(results)
+			return nil, ctx.Err()
+		}
+	}
+	close(jobs)
+	wg.Wait()
+	close(results)
+
+	docs := make([]document, 0, len(results))
+	for doc := range results {
+		docs = append(docs, doc)
+	}
 	return docs, nil
 }
 
