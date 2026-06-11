@@ -1,0 +1,13 @@
+{
+  "name": "boldpawn-com",
+  "private": true,
+  "scripts": {
+    "build:mcp": "mkdir -p build/mcp .gocache && GOCACHE=$PWD/.gocache GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o build/mcp/bootstrap ./cmd/mcp-server && cd build/mcp && zip -q ../mcp-server.zip bootstrap",
+    "cdk": "cdk",
+    "synth": "npm run build:mcp && cdk synth",
+    "deploy": "npm run build:mcp && cdk deploy --all --require-approval never"
+  },
+  "devDependencies": {
+    "aws-cdk": "2.1126.0"
+  }
+}

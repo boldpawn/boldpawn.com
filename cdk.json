@@ -1,0 +1,10 @@
+{
+  "app": "GOCACHE=$PWD/.gocache JSII_RUNTIME_PACKAGE_CACHE_ROOT=$PWD/.jsii-cache go run .",
+  "context": {
+    "@aws-cdk/core:bootstrapQualifier": "cloudfront",
+    "@aws-cdk/aws-cloudfront:defaultSecurityPolicyTLSv1.2_2021": true,
+    "accountId": "139702123223",
+    "hostedZoneId": "Z062991533VQXW91DRKHX",
+    "githubOidcProviderArn": "arn:aws:iam::139702123223:oidc-provider/token.actions.githubusercontent.com"
+  }
+}
