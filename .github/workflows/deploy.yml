@@ -47,5 +47,8 @@ jobs:
           aws-region: ${{ vars.AWS_REGION }}
           role-session-name: boldpawn-deploy-${{ github.run_id }}
 
+      - name: Bootstrap CDK environments
+        run: npx cdk bootstrap --qualifier cloudfront aws://139702123223/eu-west-1 aws://139702123223/us-east-1
+
       - name: Deploy CDK stack
         run: npm run deploy
