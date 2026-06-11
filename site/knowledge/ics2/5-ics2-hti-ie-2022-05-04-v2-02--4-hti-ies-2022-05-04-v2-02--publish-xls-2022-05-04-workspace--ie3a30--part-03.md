@@ -1,0 +1,20 @@
+---
+title: "IE3A30 - part 3"
+source_title: "IE3A30"
+source_path: "5. ICS2-HTI-IE-(2022-05-04)-v2.02/4. HTI-IEs-(2022-05-04)-v2.02/publish_XLS_2022-05-04_workspace/IE3A30.md"
+section: "IE3A30"
+chunk: 3
+chunk_count: 3
+generated: true
+---
+
+# IE3A30 - part 3
+
+Source document: IE3A30
+Source path: `5. ICS2-HTI-IE-(2022-05-04)-v2.02/4. HTI-IEs-(2022-05-04)-v2.02/publish_XLS_2022-05-04_workspace/IE3A30.md`
+Chunk: 3 of 3
+
+| IE3A30 | 3 | Attribute | 1..1 |             Identifier | an..512 | M | R3006 |  | Communication number | 240 | CIS/Declarant/Communication/identification | identifier |  |  |
+| IE3A30 | 3 | Attribute | 1..1 |             Type | an..3 | M |  |  | Communication number type | 253 | CIS/Declarant/Communication/type | type | CL707 | CL707 |
+| IE3A30 | 1 | Composition | 1..1 |     Customs office of first entry |  | M |  |  | EntryOffice | 51A | CIS/EntryOffice | customsOfficeOfFirstEntry |  |  |
+| IE3A30 | 2 | Attribute | 1..1 |         Reference number | an8 | M | R3024 |  | Office of entry, coded | G004 | CIS/EntryOffice/identification | referenceNumber | CL141 | CL141 |

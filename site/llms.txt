@@ -6,6 +6,8 @@ This site provides public Boldpawn deployment and MCP documentation.
 
 - [Deployment](https://boldpawn.com/docs/deployment.md): AWS CDK, S3, CloudFront, Route 53, and GitHub Actions deployment details.
 - [MCP Server](https://boldpawn.com/docs/mcp.md): How Copilot can query deployed S3 content through the Boldpawn MCP server.
+- [ICS2 Knowledge Base](https://boldpawn.com/knowledge/ics2/index.md): Generated MCP-friendly chunks from the ICS2 HTI source documents.
+- [Entry Summary Declaration Guide](https://boldpawn.com/knowledge/ics2-guides/entry-summary-declaration.md): Curated guide for detailed questions about ENS meaning, lifecycle, filings, messages, amendment, invalidation, and consultation.
 
 ## MCP
 

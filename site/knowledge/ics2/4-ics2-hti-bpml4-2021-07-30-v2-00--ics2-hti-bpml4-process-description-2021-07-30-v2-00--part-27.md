@@ -1,0 +1,24 @@
+---
+title: "Introduction - part 27"
+source_title: "Introduction"
+source_path: "4. ICS2-HTI-BPML4-(2021-07-30)-v2.00/ICS2-HTI-BPML4 Process Description-(2021-07-30)-v2.00.md"
+section: "L4-ICS2-03 – Perform risk analysis"
+chunk: 27
+chunk_count: 82
+generated: true
+---
+
+# Introduction - part 27
+
+Source document: Introduction
+Source path: `4. ICS2-HTI-BPML4-(2021-07-30)-v2.00/ICS2-HTI-BPML4 Process Description-(2021-07-30)-v2.00.md`
+Chunk: 27 of 82
+
+### L4-ICS2-03 – Perform risk analysis
+
+| Perform risk analysis | L4-ICS-03 |
+| --- | --- |
+| Organisation: National Customs Administration of the Responsible Member State | Organisation: National Customs Administration of the Responsible Member State |
+| Input: ENS or ENS filing ready for risk analysis | Input: ENS or ENS filing ready for risk analysis |
+| Description: The risk analysis sub-process is performed on an ENS filing or an ENS that has been prepared through the Sub-process L4-ICS2-02 – Prepare ENS for risk analysis and is now ready for risk analysis. The risk analysis performed on an ENS comprises the full security and safety risk analysis tasks, whereas the risk analysis performed on an ENS filing only comprises the air pre-loading security risk analysis. The Member States to be involved are identified and the registered ENS filing or ENS is made available to all the relevant Member States for e-Screening. Additional Involved Member State(s) may be identified for the full risk analysis process in case they have submitted specific parameters which matched the currently processed ENS (Other Member State to become the IMS). The Responsible Member State, as part of its overall electronic risk analysis process takes into account the final results of the e-Screening process performed by the IMSs. Results of the e-screening from involved Member States are collected, allocated and made available to the Responsible Member State before that Member State completes the risk analysis process. Where necessary the RMS applies during the risk analysis process appropriate risk mitigation measures as per sub-process 0 L4-ICS2-03-01 – Send referral. The RMS assigns a risk analysis result code which depends on the identified level of risk which will influence the decision on whether the goods will be subject to prohibition to be loaded on the means of transport (DNL) or subject to controls. If controls are deemed necessary, the nature of security and safety risk analysis also influences a decision on where the controls should take place (COFE or at a later stage like subsequent customs office of entry (first unloading location) or place where goods are presented subsequent to the place of first unloading, or customs office of destination). | Description: The risk analysis sub-process is performed on an ENS filing or an ENS that has been prepared through the Sub-process L4-ICS2-02 – Prepare ENS for risk analysis and is now ready for risk analysis. The risk analysis performed on an ENS comprises the full security and safety risk analysis tasks, whereas the risk analysis performed on an ENS filing only comprises the air pre-loading security risk analysis. The Member States to be involved are identified and the registered ENS filing or ENS is made available to all the relevant Member States for e-Screening. Additional Involved Member State(s) may be identified for the full risk analysis process in case they have submitted specific parameters which matched the currently processed ENS (Other Member State to become the IMS). The Responsible Member State, as part of its overall electronic risk analysis process takes into account the final results of the e-Screening process performed by the IMSs. Results of the e-screening from involved Member States are collected, allocated and made available to the Responsible Member State before that Member State completes the risk analysis process. Where necessary the RMS applies during the risk analysis process appropriate risk mitigation measures as per sub-process 0 L4-ICS2-03-01 – Send referral. The RMS assigns a risk analysis result code which depends on the identified level of risk which will influence the decision on whether the goods will be subject to prohibition to be loaded on the means of transport (DNL) or subject to controls. If controls are deemed necessary, the nature of security and safety risk analysis also influences a decision on where the controls should take place (COFE or at a later stage like subsequent customs office of entry (first unloading location) or place where goods are presented subsequent to the place of first unloading, or customs office of destination). |
+| Output (Final situation): Risk analysis was performed and measures to be taken were decided. | Output (Final situation): Risk analysis was performed and measures to be taken were decided. |
