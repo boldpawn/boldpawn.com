@@ -29,17 +29,37 @@ type siteStackProps struct {
 	GitHubRepo            string
 	GitHubBranch          string
 	GitHubOidcProviderArn string
+	CloudFrontCertificate acm.ICertificate
 }
 
-func newSiteStack(scope constructs.Construct, id string, props *siteStackProps) awscdk.Stack {
-	stack := awscdk.NewStack(scope, jsii.String(id), &props.StackProps)
+type certificateStackProps struct {
+	awscdk.StackProps
 
-	hostedZone := resolveHostedZone(stack, props)
+	DomainName     string
+	HostedZoneName string
+	HostedZoneId   string
+}
+
+func newCertificateStack(scope constructs.Construct, id string, props *certificateStackProps) (awscdk.Stack, acm.ICertificate) {
+	stack := awscdk.NewStack(scope, jsii.String(id), &props.StackProps)
+	hostedZone := resolveHostedZone(stack, props.HostedZoneName, props.HostedZoneId)
 
 	certificate := acm.NewCertificate(stack, jsii.String("Certificate"), &acm.CertificateProps{
 		DomainName: jsii.String(props.DomainName),
 		Validation: acm.CertificateValidation_FromDns(hostedZone),
 	})
+
+	awscdk.NewCfnOutput(stack, jsii.String("CertificateArn"), &awscdk.CfnOutputProps{
+		Value: certificate.CertificateArn(),
+	})
+
+	return stack, certificate
+}
+
+func newSiteStack(scope constructs.Construct, id string, props *siteStackProps) awscdk.Stack {
+	stack := awscdk.NewStack(scope, jsii.String(id), &props.StackProps)
+
+	hostedZone := resolveHostedZone(stack, props.HostedZoneName, props.HostedZoneId)
 
 	contentBucket := s3.NewBucket(stack, jsii.String("ContentBucket"), &s3.BucketProps{
 		BlockPublicAccess: s3.BlockPublicAccess_BLOCK_ALL(),
@@ -51,7 +71,7 @@ func newSiteStack(scope constructs.Construct, id string, props *siteStackProps) 
 	})
 
 	distribution := cloudfront.NewDistribution(stack, jsii.String("Distribution"), &cloudfront.DistributionProps{
-		Certificate:            certificate,
+		Certificate:            props.CloudFrontCertificate,
 		DefaultRootObject:      jsii.String("index.html"),
 		DomainNames:            &[]*string{jsii.String(props.DomainName)},
 		MinimumProtocolVersion: cloudfront.SecurityPolicyProtocol_TLS_V1_2_2025,
@@ -189,16 +209,16 @@ func newGitHubDeployRole(scope constructs.Construct, props *siteStackProps) iam.
 	return role
 }
 
-func resolveHostedZone(scope constructs.Construct, props *siteStackProps) route53.IHostedZone {
-	if props.HostedZoneId != "" {
+func resolveHostedZone(scope constructs.Construct, hostedZoneName string, hostedZoneId string) route53.IHostedZone {
+	if hostedZoneId != "" {
 		return route53.HostedZone_FromHostedZoneAttributes(scope, jsii.String("HostedZone"), &route53.HostedZoneAttributes{
-			HostedZoneId: jsii.String(props.HostedZoneId),
-			ZoneName:     jsii.String(props.HostedZoneName),
+			HostedZoneId: jsii.String(hostedZoneId),
+			ZoneName:     jsii.String(hostedZoneName),
 		})
 	}
 
 	return route53.HostedZone_FromLookup(scope, jsii.String("HostedZone"), &route53.HostedZoneProviderProps{
-		DomainName: jsii.String(props.HostedZoneName),
+		DomainName: jsii.String(hostedZoneName),
 	})
 }
 
@@ -211,17 +231,38 @@ func main() {
 		os.Getenv("CDK_DEFAULT_ACCOUNT"),
 		os.Getenv("AWS_ACCOUNT_ID"),
 	)
+	region := contextOrDefault(app, "region", "eu-west-1")
+	certificateRegion := contextOrDefault(app, "certificateRegion", "us-east-1")
+	domainName := contextOrDefault(app, "domainName", "boldpawn.com")
+	hostedZoneName := contextOrDefault(app, "hostedZoneName", "boldpawn.com")
+	hostedZoneId := contextString(app, "hostedZoneId")
+
+	_, cloudFrontCertificate := newCertificateStack(app, "BoldpawnCertificateStack", &certificateStackProps{
+		DomainName:     domainName,
+		HostedZoneId:   hostedZoneId,
+		HostedZoneName: hostedZoneName,
+		StackProps: awscdk.StackProps{
+			CrossRegionReferences: jsii.Bool(true),
+			Env: &awscdk.Environment{
+				Account: optionalString(account),
+				Region:  jsii.String(certificateRegion),
+			},
+		},
+	})
+
 	config := siteStackProps{
-		DomainName:            contextOrDefault(app, "domainName", "boldpawn.com"),
+		DomainName:            domainName,
+		CloudFrontCertificate: cloudFrontCertificate,
 		GitHubBranch:          contextOrDefault(app, "githubBranch", "main"),
 		GitHubOidcProviderArn: contextOrDefault(app, "githubOidcProviderArn", os.Getenv("GITHUB_OIDC_PROVIDER_ARN")),
 		GitHubRepo:            contextOrDefault(app, "githubRepo", "boldpawn/boldpawn.com"),
-		HostedZoneId:          contextString(app, "hostedZoneId"),
-		HostedZoneName:        contextOrDefault(app, "hostedZoneName", "boldpawn.com"),
+		HostedZoneId:          hostedZoneId,
+		HostedZoneName:        hostedZoneName,
 		StackProps: awscdk.StackProps{
+			CrossRegionReferences: jsii.Bool(true),
 			Env: &awscdk.Environment{
 				Account: optionalString(account),
-				Region:  jsii.String("us-east-1"),
+				Region:  jsii.String(region),
 			},
 		},
 	}

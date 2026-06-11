@@ -4,6 +4,8 @@
     "@aws-cdk/core:bootstrapQualifier": "cloudfront",
     "@aws-cdk/aws-cloudfront:defaultSecurityPolicyTLSv1.2_2021": true,
     "accountId": "139702123223",
+    "region": "eu-west-1",
+    "certificateRegion": "us-east-1",
     "hostedZoneId": "Z062991533VQXW91DRKHX",
     "githubOidcProviderArn": "arn:aws:iam::139702123223:oidc-provider/token.actions.githubusercontent.com"
   }

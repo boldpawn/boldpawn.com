@@ -12,7 +12,7 @@ tags:
 
 The `boldpawn.com` site is deployed from this repository with AWS CDK in Go.
 
-The stack creates a private S3 bucket for static content, a CloudFront distribution that reads from the bucket with Origin Access Control, ACM certificates, Route 53 alias records, and a GitHub Actions deploy role.
+The app creates a private S3 bucket for static content, a CloudFront distribution that reads from the bucket with Origin Access Control, ACM certificates, Route 53 alias records, and a GitHub Actions deploy role.
 
 ## Static Site
 
@@ -20,9 +20,9 @@ Human-facing files are deployed from `site/` into the private content bucket. Cl
 
 ## DNS And Certificates
 
-The stack manages `boldpawn.com` and `mcp.boldpawn.com` in the Route 53 hosted zone `Z062991533VQXW91DRKHX`.
+The application stack runs in `eu-west-1` and manages `boldpawn.com` and `mcp.boldpawn.com` in the Route 53 hosted zone `Z062991533VQXW91DRKHX`.
 
-CloudFront custom certificates must be issued in `us-east-1`, so the stack runs in `us-east-1`.
+CloudFront custom certificates must be issued in `us-east-1`, so a separate certificate stack runs there and is referenced by the `eu-west-1` application stack.
 
 ## GitHub Actions
 
@@ -37,4 +37,3 @@ npm run deploy
 ```
 
 The deploy script builds the MCP Lambda package and then runs `cdk deploy --all --require-approval never`.
-

@@ -12,11 +12,11 @@ Static site infrastructure for `boldpawn.com`, deployed with AWS CDK in Go.
 - GitHub Actions OIDC deploy role restricted to `boldpawn/boldpawn.com` on `main`
 - GitHub Actions workflow that runs `cdk deploy`
 
-CloudFront certificates for custom domains must live in `us-east-1`, so this stack deploys to your default AWS account in `us-east-1`.
+The application stack deploys to `eu-west-1`. CloudFront viewer certificates for custom domains must live in `us-east-1`, so this app also creates a small certificate stack there and references it from the `eu-west-1` stack.
 
 ## First Deployment
 
-This repository is configured for AWS account `139702123223`, hosted zone `Z062991533VQXW91DRKHX`, and the existing GitHub Actions OIDC provider in that account. It also uses the existing CDK bootstrap qualifier `cloudfront`.
+This repository is configured for AWS account `139702123223`, region `eu-west-1`, hosted zone `Z062991533VQXW91DRKHX`, and the existing GitHub Actions OIDC provider in that account. It also uses the existing CDK bootstrap qualifier `cloudfront`.
 
 Prerequisites:
 
@@ -27,13 +27,13 @@ Prerequisites:
   - `ns-1101.awsdns-09.org`
   - `ns-985.awsdns-59.net`
 - AWS credentials are configured locally for that account
-- The account is CDK bootstrapped in `us-east-1`
+- The account is CDK bootstrapped in `eu-west-1` and `us-east-1`
 
 Bootstrap once if needed:
 
 ```sh
 npm install
-npx cdk bootstrap --qualifier cloudfront aws://$(aws sts get-caller-identity --query Account --output text)/us-east-1
+npx cdk bootstrap --qualifier cloudfront aws://$(aws sts get-caller-identity --query Account --output text)/eu-west-1 aws://$(aws sts get-caller-identity --query Account --output text)/us-east-1
 ```
 
 Deploy locally once to create the site and the GitHub deploy role:
@@ -91,4 +91,10 @@ You can override defaults with CDK context:
 
 ```sh
 npm run synth -- -c domainName=boldpawn.com -c hostedZoneName=boldpawn.com -c githubRepo=boldpawn/boldpawn.com -c githubBranch=main
+```
+
+Override the application region or CloudFront certificate region with:
+
+```sh
+npm run synth -- -c region=eu-west-1 -c certificateRegion=us-east-1
 ```
