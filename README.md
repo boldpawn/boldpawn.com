@@ -9,7 +9,7 @@ Static site infrastructure for `boldpawn.com`, deployed with AWS CDK in Go.
 - ACM certificate for `boldpawn.com`, DNS-validated in Route 53
 - Route 53 A and AAAA alias records for `boldpawn.com`
 - Remote MCP server at `https://mcp.boldpawn.com/mcp` for read-only access to deployed S3 content
-- GitHub Actions OIDC deploy role restricted to `boldpawn/boldpawn.com` on `main`
+- GitHub Actions OIDC deploy role restricted to `boldpawn/boldpawn.com` on `main`, with support for the `prod` environment subject
 - GitHub Actions workflow that runs `cdk deploy`
 
 The application stack deploys to `eu-west-1`. CloudFront viewer certificates for custom domains must live in `us-east-1`, so this app also creates a small certificate stack there and references it from the `eu-west-1` stack.
@@ -42,7 +42,7 @@ Deploy locally once to create the site and the GitHub deploy role:
 npm run deploy
 ```
 
-Set the `GitHubDeployRoleArn` stack output as a GitHub repository variable named `AWS_ROLE_ARN`. After that, pushes to `main` deploy through GitHub Actions.
+Set the `GitHubDeployRoleArn` stack output as a GitHub repository variable named `AWS_ROLE_TO_ASSUME`. Also set `AWS_REGION` to `eu-west-1`. After that, pushes to `main` deploy through GitHub Actions.
 
 If you move this to another AWS account, update the CDK context in `cdk.json`. If that account does not already have the GitHub Actions OIDC provider, remove `githubOidcProviderArn` for the first deploy so CDK creates it.
 

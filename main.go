@@ -28,6 +28,7 @@ type siteStackProps struct {
 	HostedZoneId          string
 	GitHubRepo            string
 	GitHubBranch          string
+	GitHubEnvironment     string
 	GitHubOidcProviderArn string
 	CloudFrontCertificate acm.ICertificate
 }
@@ -191,12 +192,15 @@ func newGitHubDeployRole(scope constructs.Construct, props *siteStackProps) iam.
 		})
 	}
 
-	subject := fmt.Sprintf("repo:%s:ref:refs/heads/%s", props.GitHubRepo, props.GitHubBranch)
+	subjects := []string{
+		fmt.Sprintf("repo:%s:environment:%s", props.GitHubRepo, props.GitHubEnvironment),
+		fmt.Sprintf("repo:%s:ref:refs/heads/%s", props.GitHubRepo, props.GitHubBranch),
+	}
 	role := iam.NewRole(scope, jsii.String("GitHubDeployRole"), &iam.RoleProps{
 		AssumedBy: iam.NewOpenIdConnectPrincipal(provider, &map[string]interface{}{
 			"StringEquals": map[string]interface{}{
 				"token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
-				"token.actions.githubusercontent.com:sub": subject,
+				"token.actions.githubusercontent.com:sub": subjects,
 			},
 		}),
 		Description:        jsii.String("Allows GitHub Actions to deploy boldpawn.com with AWS CDK."),
@@ -254,6 +258,7 @@ func main() {
 		DomainName:            domainName,
 		CloudFrontCertificate: cloudFrontCertificate,
 		GitHubBranch:          contextOrDefault(app, "githubBranch", "main"),
+		GitHubEnvironment:     contextOrDefault(app, "githubEnvironment", "prod"),
 		GitHubOidcProviderArn: contextOrDefault(app, "githubOidcProviderArn", os.Getenv("GITHUB_OIDC_PROVIDER_ARN")),
 		GitHubRepo:            contextOrDefault(app, "githubRepo", "boldpawn/boldpawn.com"),
 		HostedZoneId:          hostedZoneId,

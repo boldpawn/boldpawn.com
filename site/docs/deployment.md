@@ -26,7 +26,7 @@ CloudFront custom certificates must be issued in `us-east-1`, so a separate cert
 
 ## GitHub Actions
 
-GitHub Actions authenticates to AWS through OIDC. The deploy role ARN is exposed as the `GitHubDeployRoleArn` stack output and should be stored in the repository variable `AWS_ROLE_ARN`.
+GitHub Actions authenticates to AWS through OIDC. The deploy role ARN is exposed as the `GitHubDeployRoleArn` stack output and should be stored in the repository variable `AWS_ROLE_TO_ASSUME`. The repository variable `AWS_REGION` should be set to `eu-west-1`.
 
 ## Deployment Command
 

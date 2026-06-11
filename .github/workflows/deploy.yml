@@ -8,14 +8,15 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 jobs:
   deploy:
     name: Deploy boldpawn.com
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    env:
-      AWS_REGION: eu-west-1
+    permissions:
+      contents: read
+      id-token: write
 
     steps:
       - name: Check out repository
@@ -40,10 +41,11 @@ jobs:
         run: go mod download
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
-          aws-region: ${{ env.AWS_REGION }}
-          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: boldpawn-deploy-${{ github.run_id }}
 
       - name: Deploy CDK stack
         run: npm run deploy
