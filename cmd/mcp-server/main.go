@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"html"
 	"io"
+	"log/slog"
 	"math"
 	"net/http"
 	"net/url"
@@ -23,6 +24,7 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/aws/aws-lambda-go/lambdacontext"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -50,6 +52,7 @@ var (
 
 	s3Client *s3.Client
 	cache    = documentCache{ttl: 15 * time.Minute}
+	logger   = slog.New(slog.NewJSONHandler(os.Stdout, nil))
 )
 
 type documentCache struct {
@@ -96,6 +99,25 @@ type toolContent struct {
 	Text string `json:"text"`
 }
 
+type requestLogSummary struct {
+	BodyBytes     int
+	HasID         bool
+	Notification  bool
+	RPCMethod     string
+	ToolName      string
+	QueryPreview  string
+	QueryLength   int
+	Key           string
+	Prefix        string
+	Limit         int
+	ResourceURI   string
+	ResourceKey   string
+	ParseError    string
+	DispatchError string
+	ToolError     bool
+	CallStarted   bool
+}
+
 func main() {
 	ctx := context.Background()
 	cfg, err := config.LoadDefaultConfig(ctx)
@@ -106,7 +128,13 @@ func main() {
 	lambda.Start(handler)
 }
 
-func handler(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
+func handler(ctx context.Context, req events.APIGatewayV2HTTPRequest) (resp events.APIGatewayV2HTTPResponse, err error) {
+	startedAt := time.Now()
+	logSummary := &requestLogSummary{}
+	defer func() {
+		logMCPRequestCompleted(ctx, req, logSummary, resp, err, time.Since(startedAt))
+	}()
+
 	if req.RawPath == "/health" {
 		return jsonHTTP(http.StatusOK, map[string]string{"status": "ok", "server": serverName}, req.Headers), nil
 	}
@@ -131,32 +159,43 @@ func handler(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.AP
 
 	body, err := requestBody(req)
 	if err != nil {
+		logSummary.ParseError = "request body decode failed"
 		return rpcHTTP(http.StatusBadRequest, rpcResponse{
 			JSONRPC: "2.0",
 			ID:      json.RawMessage("null"),
 			Error:   &rpcError{Code: -32700, Message: "invalid JSON-RPC payload"},
 		}, req.Headers), nil
 	}
+	logSummary.BodyBytes = len(body)
 
 	var call rpcRequest
 	if err := json.Unmarshal(body, &call); err != nil {
+		logSummary.ParseError = "json unmarshal failed"
 		return rpcHTTP(http.StatusBadRequest, rpcResponse{
 			JSONRPC: "2.0",
 			ID:      json.RawMessage("null"),
 			Error:   &rpcError{Code: -32700, Message: "invalid JSON-RPC payload"},
 		}, req.Headers), nil
 	}
+	logSummary.captureCall(call)
+	logMCPCallStarted(ctx, req, logSummary)
+
 	if call.ID == nil || len(call.ID) == 0 {
+		logSummary.Notification = true
 		return emptyHTTP(http.StatusAccepted, req.Headers), nil
 	}
 
 	result, err := dispatch(ctx, call)
 	if err != nil {
+		logSummary.DispatchError = err.Error()
 		return rpcHTTP(http.StatusOK, rpcResponse{
 			JSONRPC: "2.0",
 			ID:      call.ID,
 			Error:   &rpcError{Code: -32603, Message: err.Error()},
 		}, req.Headers), nil
+	}
+	if toolResult, ok := result.(toolCallResult); ok && toolResult.IsError {
+		logSummary.ToolError = true
 	}
 
 	return rpcHTTP(http.StatusOK, rpcResponse{
@@ -171,6 +210,174 @@ func requestBody(req events.APIGatewayV2HTTPRequest) ([]byte, error) {
 		return []byte(req.Body), nil
 	}
 	return base64.StdEncoding.DecodeString(req.Body)
+}
+
+func (summary *requestLogSummary) captureCall(call rpcRequest) {
+	summary.HasID = call.ID != nil && len(call.ID) > 0
+	summary.RPCMethod = call.Method
+
+	switch call.Method {
+	case "tools/call":
+		var params struct {
+			Name      string                 `json:"name"`
+			Arguments map[string]interface{} `json:"arguments"`
+		}
+		if err := json.Unmarshal(call.Params, &params); err != nil {
+			return
+		}
+		summary.ToolName = params.Name
+		summary.captureToolArguments(params.Name, params.Arguments)
+	case "resources/read":
+		var params struct {
+			URI string `json:"uri"`
+		}
+		if err := json.Unmarshal(call.Params, &params); err != nil {
+			return
+		}
+		summary.ResourceURI = truncateLogValue(params.URI, 240)
+		if key, err := keyFromResourceURI(params.URI); err == nil {
+			summary.ResourceKey = truncateLogValue(key, 240)
+		}
+	}
+}
+
+func (summary *requestLogSummary) captureToolArguments(toolName string, args map[string]interface{}) {
+	if args == nil {
+		return
+	}
+	switch toolName {
+	case "search_content":
+		query := strings.TrimSpace(stringArg(args, "query"))
+		summary.QueryLength = len([]rune(query))
+		summary.QueryPreview = truncateLogValue(query, 180)
+		summary.Limit = intArg(args, "limit", 5)
+	case "read_content":
+		summary.Key = truncateLogValue(cleanKey(stringArg(args, "key")), 240)
+	case "list_content":
+		summary.Prefix = truncateLogValue(cleanKey(stringArg(args, "prefix")), 240)
+	}
+}
+
+func logMCPCallStarted(ctx context.Context, req events.APIGatewayV2HTTPRequest, summary *requestLogSummary) {
+	summary.CallStarted = true
+	attrs := append(commonLogAttrs(ctx, req),
+		slog.String("event", "mcp_call_started"),
+		slog.Int("body_bytes", summary.BodyBytes),
+	)
+	attrs = append(attrs, summaryLogAttrs(summary)...)
+	logger.LogAttrs(ctx, slog.LevelInfo, "mcp call started", attrs...)
+}
+
+func logMCPRequestCompleted(ctx context.Context, req events.APIGatewayV2HTTPRequest, summary *requestLogSummary, resp events.APIGatewayV2HTTPResponse, err error, duration time.Duration) {
+	status := resp.StatusCode
+	if status == 0 {
+		if err != nil {
+			status = http.StatusInternalServerError
+		} else {
+			status = http.StatusOK
+		}
+	}
+
+	level := slog.LevelInfo
+	if err != nil || status >= 500 || summary.DispatchError != "" {
+		level = slog.LevelError
+	} else if status >= 400 || summary.ToolError || summary.ParseError != "" {
+		level = slog.LevelWarn
+	}
+
+	attrs := append(commonLogAttrs(ctx, req),
+		slog.String("event", "mcp_request_completed"),
+		slog.Int("status", status),
+		slog.Int64("duration_ms", duration.Milliseconds()),
+		slog.Int("body_bytes", summary.BodyBytes),
+		slog.Bool("call_started", summary.CallStarted),
+	)
+	if err != nil {
+		attrs = append(attrs, slog.String("handler_error", truncateLogValue(err.Error(), 240)))
+	}
+	attrs = append(attrs, summaryLogAttrs(summary)...)
+	logger.LogAttrs(ctx, level, "mcp request completed", attrs...)
+}
+
+func commonLogAttrs(ctx context.Context, req events.APIGatewayV2HTTPRequest) []slog.Attr {
+	attrs := []slog.Attr{
+		slog.String("http_method", req.RequestContext.HTTP.Method),
+		slog.String("raw_path", req.RawPath),
+		slog.String("api_gateway_request_id", req.RequestContext.RequestID),
+		slog.String("domain_name", req.RequestContext.DomainName),
+	}
+	if lambdaContext, ok := lambdacontext.FromContext(ctx); ok {
+		attrs = append(attrs, slog.String("lambda_request_id", lambdaContext.AwsRequestID))
+	}
+	if req.RequestContext.HTTP.SourceIP != "" {
+		attrs = append(attrs, slog.String("source_ip", req.RequestContext.HTTP.SourceIP))
+	}
+	if req.RequestContext.HTTP.UserAgent != "" {
+		attrs = append(attrs, slog.String("user_agent", truncateLogValue(req.RequestContext.HTTP.UserAgent, 240)))
+	}
+	if origin := header(req.Headers, "origin"); origin != "" {
+		attrs = append(attrs, slog.String("origin", truncateLogValue(origin, 240)))
+	}
+	if protocolVersion := header(req.Headers, "mcp-protocol-version"); protocolVersion != "" {
+		attrs = append(attrs, slog.String("mcp_protocol_version", truncateLogValue(protocolVersion, 80)))
+	}
+	return attrs
+}
+
+func summaryLogAttrs(summary *requestLogSummary) []slog.Attr {
+	attrs := []slog.Attr{
+		slog.Bool("has_id", summary.HasID),
+		slog.Bool("notification", summary.Notification),
+	}
+	if summary.RPCMethod != "" {
+		attrs = append(attrs, slog.String("rpc_method", summary.RPCMethod))
+	}
+	if summary.ToolName != "" {
+		attrs = append(attrs, slog.String("tool_name", summary.ToolName))
+	}
+	if summary.QueryPreview != "" {
+		attrs = append(attrs,
+			slog.String("query_preview", summary.QueryPreview),
+			slog.Int("query_length", summary.QueryLength),
+		)
+	}
+	if summary.Key != "" {
+		attrs = append(attrs, slog.String("key", summary.Key))
+	}
+	if summary.Prefix != "" {
+		attrs = append(attrs, slog.String("prefix", summary.Prefix))
+	}
+	if summary.Limit != 0 {
+		attrs = append(attrs, slog.Int("limit", summary.Limit))
+	}
+	if summary.ResourceURI != "" {
+		attrs = append(attrs, slog.String("resource_uri", summary.ResourceURI))
+	}
+	if summary.ResourceKey != "" {
+		attrs = append(attrs, slog.String("resource_key", summary.ResourceKey))
+	}
+	if summary.ParseError != "" {
+		attrs = append(attrs, slog.String("parse_error", summary.ParseError))
+	}
+	if summary.DispatchError != "" {
+		attrs = append(attrs, slog.String("dispatch_error", truncateLogValue(summary.DispatchError, 240)))
+	}
+	if summary.ToolError {
+		attrs = append(attrs, slog.Bool("tool_error", true))
+	}
+	return attrs
+}
+
+func truncateLogValue(value string, limit int) string {
+	value = strings.TrimSpace(spacePattern.ReplaceAllString(value, " "))
+	if limit <= 0 {
+		return value
+	}
+	runes := []rune(value)
+	if len(runes) <= limit {
+		return value
+	}
+	return string(runes[:limit]) + "..."
 }
 
 func dispatch(ctx context.Context, call rpcRequest) (interface{}, error) {
